@@ -1,0 +1,116 @@
+name: standalone build
+
+#on: [gollum]
+on: [push, pull_request]
+
+jobs:
+  linux-standalone:
+    name: Linux standalone build tests
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: Checkout builder
+        uses: actions/checkout@v2
+        with:
+          repository: longyan/phpmicro-builder
+          path: .
+      
+      - name: Prepare php codes
+        uses: actions/checkout@v2
+        with:
+          repository: php/php-src
+          path: php-src
+          ref: php-8.0.2
+      
+      - name: Prepare micro codes
+        uses: actions/checkout@v2
+        with:
+          repository: dixyes/phpmicro
+          path: php-src/sapi/micro
+      
+      # todo: add some deps here
+      
+      - name: Generate .dockerignore and apply patches
+        shell: bash
+        run: |
+          echo 'php-src/.git' > .dockerignore &&
+          echo 'php-src/sapi/micro/.git' >> .dockerignore &&
+          cd php-src &&
+          patch -p1 < sapi/micro/patches/disable_huge_page.patch &&
+          patch -p1 < sapi/micro/patches/cli_checks.patch
+
+      - name: Build micro with docker
+        shell: bash
+        run: |
+          ./linux/make.sh
+      
+      - name: Run tests in docker
+        shell: bash
+        continue-on-error: true
+        run: |
+          docker run \
+            -v `realpath linux/test.sh`:/work/test.sh \
+            -v `realpath linux/rmtests.txt`:/work/iwillrmthesetestsonthismachine \
+            -w /work/php \
+            dixyes/microbuilder \
+            /work/test.sh INACTION
+
+      - name: Basic tests
+        shell: bash
+        working-directory: ${{ github.workspace }}
+        run: |
+          cat > hello.php <<EOF
+          <?php
+          echo "a hello from phpmicro" . PHP_EOL;
+          echo "php_sapi_name(): " . php_sapi_name() . PHP_EOL;
+          echo "argv is" . PHP_EOL;
+          var_dump(\$argv);
+          echo "self is: micro_get_self_filename(): " . micro_get_self_filename() . PHP_EOL;
+          echo "sfx size (payload offset) is: micro_get_sfx_filesize(): " . micro_get_sfx_filesize() . PHP_EOL;
+          echo "micro version is: ";
+          var_dump(micro_version());
+          echo "get_loaded_extensions():" . PHP_EOL;
+          var_dump(get_loaded_extensions());
+          \$a = cli_get_process_title();
+          var_dump(\$a);
+          sleep(2);
+          cli_set_process_title("ceshi");
+          sleep(10);
+          EOF
+          cat micro.sfx hello.php > hello
+          chmod 0755 hello
+          ./hello &
+          pid=$!
+          for i in `seq 10`
+          do
+            printf "name is now: "
+            cat /proc/${pid}/cmdline
+            echo
+            sleep 1
+          done
+
+      - name: Name Release
+        id: name-release
+        shell: bash
+        run: |
+          cd php-src/sapi/micro &&
+          echo "::set-output name=relname::`date "+%Y%m%d%H%M%S"`-`git rev-parse --short HEAD`"
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.name-release.outputs.relname }}
+          release_name: Release ${{ steps.name-release.outputs.relname }}
+          prerelease: false
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./micro.sfx
+          asset_name: micro.sfx
+          asset_content_type: application/zip
