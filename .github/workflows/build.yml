@@ -5,7 +5,7 @@ on: [push, pull_request]
 
 jobs:
   linux-standalone:
-    name: Linux standalone build tests
+    name: Linux standalone build
     runs-on: "ubuntu-latest"
     steps:
       - name: Checkout builder
