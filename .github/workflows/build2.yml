@@ -60,7 +60,7 @@ jobs:
         id: name-release
         shell: bash
         run: |
-          cd php-src/sapi/micro &&
+          cd ${{ github.workspace }}/microbuild/php-src/sapi/micro &&
           echo "::set-output name=relname::`date "+%Y%m%d%H%M%S"`-`git rev-parse --short HEAD`"
 
       - name: Create Release
