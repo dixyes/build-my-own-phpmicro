@@ -18,7 +18,7 @@ jobs:
         uses: ./
         with:
           githubtoken: ${{ secrets.GITHUB_TOKEN }}
-          exts: swoole,redis,curl
+          exts: swoole,redis,curl,openssl
           #args: +ext,openssl
           workdir: ${{ github.workspace }}/microbuild
       
