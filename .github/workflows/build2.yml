@@ -1,11 +1,11 @@
-name: standalone build
+name: in-action build
 
-on: [gollum]
-#on: [push, pull_request]
+#on: [gollum]
+on: [push, pull_request]
 
 jobs:
-  linux-standalone:
-    name: Linux standalone build
+  inaction-linux:
+    name: linux in-action build tests
     runs-on: "ubuntu-latest"
     steps:
       - name: Checkout builder
@@ -13,47 +13,15 @@ jobs:
         with:
           repository: longyan/phpmicro-builder
           path: .
-      
-      - name: Prepare php codes
-        uses: actions/checkout@v2
-        with:
-          repository: php/php-src
-          path: php-src
-          ref: php-8.0.2
-      
-      - name: Prepare micro codes
-        uses: actions/checkout@v2
-        with:
-          repository: dixyes/phpmicro
-          path: php-src/sapi/micro
-      
-      # todo: add some deps here
-      
-      - name: Generate .dockerignore and apply patches
-        shell: bash
-        run: |
-          echo 'php-src/.git' > .dockerignore &&
-          echo 'php-src/sapi/micro/.git' >> .dockerignore &&
-          cd php-src &&
-          patch -p1 < sapi/micro/patches/disable_huge_page.patch &&
-          patch -p1 < sapi/micro/patches/cli_checks.patch
 
-      - name: Build micro with docker
-        shell: bash
-        run: |
-          ./linux/make.sh
+      - name: Build micro use action
+        uses: ./
+        with:
+          githubtoken: ${{ secrets.GITHUB_TOKEN }}
+          exts: swoole
+          args: +ext,openssl
+          workdir: ${{ github.workspace }}/microbuild
       
-      - name: Run tests in docker
-        shell: bash
-        continue-on-error: true
-        run: |
-          docker run \
-            -v `realpath linux/test.sh`:/work/test.sh \
-            -v `realpath linux/rmtests.txt`:/work/iwillrmthesetestsonthismachine \
-            -w /work/php \
-            dixyes/microbuilder \
-            /work/test.sh INACTION
-
       - name: Basic tests
         shell: bash
         working-directory: ${{ github.workspace }}
@@ -76,7 +44,7 @@ jobs:
           cli_set_process_title("ceshi");
           sleep(10);
           EOF
-          cat micro.sfx hello.php > hello
+          cat microbuild/micro.sfx hello.php > hello
           chmod 0755 hello
           ./hello &
           pid=$!
@@ -111,6 +79,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./micro.sfx
+          asset_path: ${{ github.workspace }}/microbuild/micro.sfx
           asset_name: micro.sfx
           asset_content_type: application/zip
