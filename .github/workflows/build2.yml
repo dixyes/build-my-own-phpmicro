@@ -5,7 +5,7 @@ on: [push, pull_request]
 
 jobs:
   inaction-linux:
-    name: linux in-action build tests
+    name: linux in-action build
     runs-on: "ubuntu-latest"
     steps:
       - name: Checkout builder
@@ -18,7 +18,7 @@ jobs:
         uses: ./
         with:
           githubtoken: ${{ secrets.GITHUB_TOKEN }}
-          exts: swoole,redis
+          exts: swoole,redis,curl
           #args: +ext,openssl
           workdir: ${{ github.workspace }}/microbuild
       
