@@ -1,4 +1,4 @@
 
 # build my own PHPmicro with github actions!
 
-remind me fill this!
+use [lwmbs](https://github.com/dixyes/lwmbs) instead
